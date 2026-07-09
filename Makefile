@@ -19,7 +19,7 @@ export XDG_CONFIG_HOME ?= $(PROJECT_ROOT)/_output/.config
 # ============================================================================
 
 # DEFAULT_VERSION is the default version to use for image tags when not set.
-DEFAULT_VERSION := 1.19.0
+DEFAULT_VERSION := 1.20.0
 
 # Helper function to validate semver (Major.Minor.Patch format)
 # Returns 'valid' if the version matches semver (X.Y.Z) or 'latest', empty string otherwise
@@ -57,11 +57,16 @@ endif
 # --- Operand Versions ---
 
 # Versions of the cert-manager components managed by this operator
-CERT_MANAGER_VERSION ?= v1.19.4
+CERT_MANAGER_VERSION ?= v1.20.3
 ISTIO_CSR_VERSION ?= v0.16.0
 TRUST_MANAGER_VERSION ?= v0.20.3
 
 # --- Test Versions ---
+
+# OpenShift Service Mesh versions for IstioCSR ServiceMesh e2e tests.
+# Keep servicemesh_helpers_test.go ossmDefault* constants in sync when bumping.
+E2E_OSM_ISTIO_VERSION ?= v1.24.3
+E2E_OSM_OPERATOR_VERSION ?= 3.2.5
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION ?= 1.32.0
@@ -132,7 +137,7 @@ USE_IMAGE_DIGESTS ?= false
 
 # CHANNELS define the bundle channels used in the bundle.
 # To override: make bundle CHANNELS=candidate,fast,stable or export CHANNELS="candidate,fast,stable"
-CHANNELS ?= stable-v1,stable-v1.19
+CHANNELS ?= stable-v1,stable-v1.20
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
@@ -164,7 +169,7 @@ TLS_VERIFY ?= true
 CONTAINER_PUSH_ARGS ?= $(if $(filter $(CONTAINER_ENGINE),docker),,--tls-verify=$(TLS_VERIFY))
 
 # Container image used for running make targets in a container
-CONTAINER_IMAGE_NAME ?= registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.25-openshift-4.21
+CONTAINER_IMAGE_NAME ?= registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.26-openshift-4.23
 
 # ============================================================================
 # Build Configuration
@@ -188,7 +193,7 @@ E2E_TIMEOUT ?= 2h
 # E2E_GINKGO_LABEL_FILTER is ginkgo label query for selecting tests.
 # See https://onsi.github.io/ginkgo/#spec-labels
 # The default is to run tests on the AWS platform.
-E2E_GINKGO_LABEL_FILTER ?= Platform: isSubsetOf {AWS,Generic} && CredentialsMode: isSubsetOf {Mint}
+E2E_GINKGO_LABEL_FILTER ?= Platform: isSubsetOf {AWS,Generic} && CredentialsMode: isSubsetOf {Mint} && !Feature:ServiceMesh
 
 # ============================================================================
 # Default Target
@@ -279,6 +284,8 @@ test-apis: $(SETUP_ENVTEST) $(GINKGO)
 TEST ?=
 .PHONY: test-e2e
 test-e2e: test-e2e-wait-for-stable-state ## Run end-to-end tests.
+	E2E_OSM_ISTIO_VERSION=$(E2E_OSM_ISTIO_VERSION) \
+	E2E_OSM_OPERATOR_VERSION=$(E2E_OSM_OPERATOR_VERSION) \
 	go test -C $(PROJECT_ROOT)/test/e2e \
 		-timeout $(E2E_TIMEOUT) \
 		-count 1 -v -p 1 \
